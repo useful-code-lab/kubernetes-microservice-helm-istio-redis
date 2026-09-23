@@ -1,115 +1,229 @@
-# Core Microservice Helm Chart (Istio & Service Mesh Ready)
+# Kubernetes Microservice Deployment Kit — Helm + Istio + Redis
 
-Универсальный Helm-чарт для развертывания микросервисов в Kubernetes с продвинутой поддержкой Service Mesh (Istio) и динамическим управлением трафиком.
+Готовая основа для **развертывания микросервисов в Kubernetes** с помощью Helm, Istio и Redis.
+
+Проект помогает не создавать Kubernetes-конфигурацию для каждого нового сервиса с нуля, а использовать единый Helm-шаблон с уже подготовленной инфраструктурой для маршрутизации трафика, Canary-релизов, Redis и базовых production-настроек.
+
+## 🎯 Что вы получите
+
+Используя этот проект, вы сможете:
+
+* быстро создать Kubernetes-деплой для нового микросервиса;
+* не писать заново стандартные `Deployment`, `Service` и связанные настройки;
+* подключить **Istio Service Mesh** для управления входящим и внутренним трафиком;
+* выполнять **Canary-релизы**, постепенно переводя пользователей на новую версию;
+* управлять распределением трафика между версиями через `values.yaml`;
+* подключить Redis как готовую зависимость Helm-чарта;
+* использовать Liveness/Readiness probes;
+* задавать ограничения CPU и RAM;
+* использовать HPA для автоматического масштабирования;
+* получать одинаковый подход к развертыванию разных микросервисов;
+* проверять Kubernetes-манифесты локально до установки в кластер.
+
+Главная идея проекта — **сделать создание нового микросервиса в Kubernetes повторяемой процедурой вместо ручной настройки большого количества YAML-файлов**.
 
 ---
 
-## 🚀 Основные возможности
+## 🚀 Какую проблему решает проект
 
-* **Istio Integration** — автоматическая генерация Gateway, VirtualService и DestinationRule
-* **Canary Deployments** — управление весами трафика (v1/v2) через `values.yaml`
-* **Subcharts Support** — встроенная зависимость от Redis (Bitnami)
-* **Advanced Templating** — использование `_helpers.tpl` для стандартизации
-* **Production Ready** — Liveness/Readiness probes, лимиты CPU/RAM и HPA
+При создании микросервисов Kubernetes-конфигурация часто повторяется.
+
+Для каждого сервиса приходится отдельно настраивать:
+
+* Deployment;
+* Service;
+* health checks;
+* ресурсы контейнера;
+* autoscaling;
+* маршрутизацию;
+* Istio Gateway;
+* VirtualService;
+* DestinationRule;
+* Canary-релизы;
+* зависимости вроде Redis.
+
+В результате инфраструктурный код начинает дублироваться, а изменение стандартных настроек приходится выполнять во множестве проектов.
+
+Этот Helm-чарт предоставляет **единый шаблон**, который можно адаптировать под конкретный микросервис через `values.yaml`.
+
+---
+
+## 🧩 Что входит в решение
+
+### Kubernetes + Helm
+
+Helm используется как единая точка управления конфигурацией приложения.
+
+Вместо ручного редактирования нескольких Kubernetes-манифестов параметры сервиса можно задавать через `values.yaml`.
+
+Например:
+
+```yaml
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+```
+
+Это позволяет использовать один и тот же шаблон для разных сервисов, меняя только параметры.
+
+---
+
+## 🌐 Istio Service Mesh
+
+Проект содержит готовую интеграцию с Istio.
+
+Она позволяет использовать:
+
+* Gateway;
+* VirtualService;
+* DestinationRule;
+* управление маршрутами;
+* распределение трафика между версиями приложения.
+
+Это особенно полезно, когда необходимо управлять трафиком без изменения самого приложения.
+
+---
+
+## 🐤 Canary-релизы
+
+Одна из ключевых возможностей проекта — постепенный перевод трафика на новую версию микросервиса.
+
+Например:
+
+```yaml
+istio:
+  enabled: true
+
+  host: "my-app.local"
+
+  canary:
+    v1Weight: 80
+    v2Weight: 20
+```
+
+В этом случае:
+
+* 80% трафика направляется на стабильную версию;
+* 20% — на новую версию.
+
+Вес можно изменить без переписывания Kubernetes-манифестов:
+
+```bash
+helm upgrade my-app . \
+  --set istio.canary.v1Weight=50 \
+  --set istio.canary.v2Weight=50
+```
+
+Такой подход позволяет использовать проект как основу для сценариев **постепенного выпуска новых версий микросервиса**.
+
+---
+
+## 🗄 Redis
+
+Redis подключается как зависимость Helm-чарта.
+
+Это удобно для сервисов, которым требуется:
+
+* кеширование;
+* временное хранение данных;
+* быстрый доступ к значениям;
+* хранение состояния, не требующего основной БД;
+* использование Redis как инфраструктурного компонента.
+
+Зависимость описана через Helm, поэтому Redis можно устанавливать вместе с приложением.
+
+---
+
+## 📈 Масштабирование и надежность
+
+Шаблон предусматривает стандартные Kubernetes-механизмы, необходимые для эксплуатации сервисов:
+
+* Liveness Probe;
+* Readiness Probe;
+* CPU/Memory requests;
+* CPU/Memory limits;
+* Horizontal Pod Autoscaler.
+
+Это позволяет использовать один шаблон не только для локального тестирования, но и как основу для более серьезных Kubernetes-окружений.
+
+---
+
+## 🏗 Для кого проект
+
+Проект может быть полезен:
+
+**DevOps / Platform-инженерам**
+
+Для создания стандартного шаблона развертывания микросервисов и уменьшения количества повторяющейся инфраструктурной конфигурации.
+
+**Backend-разработчикам**
+
+Чтобы быстрее развернуть сервис в Kubernetes, не создавая все Helm/Kubernetes-манифесты самостоятельно.
+
+**Командам, использующим Istio**
+
+Для быстрого добавления маршрутизации и Canary-релизов к новым микросервисам.
+
+**Для учебных и pet-проектов**
+
+Чтобы на практическом примере разобраться с Helm, Kubernetes, Istio, Redis и управлением трафиком.
 
 ---
 
 ## 🛠 Технологический стек
 
-* Helm v3
 * Kubernetes 1.22+
+* Helm 3
 * Istio 1.15+
-* Redis (Bitnami OCI Chart)
+* Redis
+* Bitnami Helm Chart
+* Minikube
 
 ---
 
-## 📦 Использование репозитория
+## 📦 Быстрый старт
 
-### 1. Добавление репозитория
+### Добавление Helm-репозитория
+
+Если чарт опубликован в Helm-репозитории:
 
 ```bash
-helm repo add avpavlov-repo https://github.io
+helm repo add <repository-name> <repository-url>
 helm repo update
-```
-
-### 2. Установка чарта
-
-```bash
-helm install my-app avpavlov-repo/core-microservice-template
-```
-
----
-
-## ⚙️ Конфигурация Canary Release
-
-```yaml
-istio:
-  enabled: true
-  host: "my-app.local"
-  canary:
-    v1Weight: 80  # 80% трафика на стабильную версию
-    v2Weight: 20  # 20% трафика на новую версию
-```
-
-### Обновление весов
-
-```bash
-helm upgrade my-app avpavlov-repo/core-microservice-template \
-  --set istio.canary.v1Weight=50 \
-  --set istio.canary.v2Weight=50
-```
-
----
-
-## 📂 Структура проекта
-
-* `templates/istio.yaml` — шлюз и маршруты Istio
-* `templates/deployment.yaml` — deployment с поддержкой версий
-* `charts/` — зависимости (Redis)
-* `values.yaml` — конфигурация
-* `index.yaml` — индекс Helm-репозитория
-
----
-
-## 🧪 Локальная разработка (Minikube)
-
-### Подготовка
-
-```bash
-helm dependency build .
-helm lint .
-helm template my-release .
 ```
 
 ### Установка
 
 ```bash
-helm install my-app .
+helm install my-app <repository-name>/core-microservice-template
 ```
 
-### Проброс порта
+Для локальной работы можно установить чарт непосредственно из каталога проекта:
 
 ```bash
-kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80
+helm dependency build .
+helm install my-app .
 ```
 
 ---
 
-## ⚙️ Полезные команды Helm
+## 🔧 Проверка перед установкой
 
-### Установка Helm
+Перед отправкой конфигурации в Kubernetes можно проверить Helm-шаблоны локально.
 
-```bash
-sudo snap install helm --classic
-```
-
-### Проверка шаблонов
+### Проверка чарта
 
 ```bash
 helm lint .
 ```
 
-### Генерация манифестов
+### Генерация Kubernetes-манифестов
 
 ```bash
 helm template my-test-release .
@@ -121,44 +235,148 @@ helm template my-test-release .
 helm dependency build .
 ```
 
-### Генерация в файл
-
-```bash
-helm template my-release ./core-microservice-template | tee final_output.yaml
-```
+Эти команды позволяют обнаружить проблемы в Helm-шаблонах до фактического развертывания приложения.
 
 ---
 
-## 📦 Работа с пакетами
+## 🧪 Локальный запуск через Minikube
 
-### Упаковка
-
-```bash
-helm package .
-```
-
-### Просмотр пакета
-
-```bash
-helm show chart ./core-microservice-template-1.0.0.tgz
-```
-
----
-
-## 🌐 Включение Istio в Minikube
+Запустите кластер:
 
 ```bash
 minikube start
 ```
+
+Включите необходимые компоненты:
 
 ```bash
 minikube addons enable istio-provisioner
 minikube addons enable istio
 ```
 
+Включите автоматическое внедрение Istio sidecar в namespace:
+
 ```bash
 kubectl label namespace default istio-injection=enabled
-helm upgrade --install my-app .
-kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80
 ```
 
+Установите приложение:
+
+```bash
+helm upgrade --install my-app .
+```
+
+Для доступа к Istio Ingress Gateway:
+
+```bash
+kubectl port-forward \
+  -n istio-system \
+  svc/istio-ingressgateway 8080:80
+```
+
+После этого приложение можно проверять через локальный порт.
+
+---
+
+## 📂 Структура проекта
+
+```text
+.
+├── charts/
+│   └── Redis dependencies
+├── templates/
+│   ├── deployment.yaml
+│   ├── istio.yaml
+│   └── ...
+├── Chart.yaml
+├── Chart.lock
+├── values.yaml
+├── README.md
+└── index.yaml
+```
+
+### Основные файлы
+
+| Файл                        | Назначение                          |
+| --------------------------- | ----------------------------------- |
+| `Chart.yaml`                | Метаданные Helm-чарта и зависимости |
+| `Chart.lock`                | Зафиксированные версии зависимостей |
+| `values.yaml`               | Основная конфигурация приложения    |
+| `templates/deployment.yaml` | Kubernetes Deployment               |
+| `templates/istio.yaml`      | Конфигурация Istio                  |
+| `charts/`                   | Helm-зависимости                    |
+| `index.yaml`                | Индекс Helm-репозитория             |
+
+---
+
+## 📦 Создание Helm-пакета
+
+Упаковать чарт:
+
+```bash
+helm package .
+```
+
+Проверить созданный пакет:
+
+```bash
+helm show chart ./core-microservice-template-1.0.0.tgz
+```
+
+Сгенерировать итоговые Kubernetes-манифесты:
+
+```bash
+helm template my-release ./core-microservice-template \
+  | tee final_output.yaml
+```
+
+---
+
+## 🔄 Типовой сценарий использования
+
+Проект можно использовать как основу для следующего процесса:
+
+```text
+Новый микросервис
+       ↓
+Настройка values.yaml
+       ↓
+Helm template / lint
+       ↓
+Установка в Kubernetes
+       ↓
+Istio маршрутизация
+       ↓
+Canary-релиз
+       ↓
+Постепенное изменение traffic weight
+       ↓
+Полный перевод трафика на новую версию
+```
+
+Таким образом, для запуска нового сервиса не требуется каждый раз проектировать Kubernetes-инфраструктуру с нуля.
+
+---
+
+## 💡 Что можно взять из проекта
+
+Даже если вам не нужен весь набор целиком, репозиторий можно использовать как готовую основу или источник отдельных решений:
+
+* Helm-шаблоны для микросервисов;
+* пример интеграции Helm и Istio;
+* настройку Canary traffic splitting;
+* подключение Redis как Helm dependency;
+* структуру production-oriented Helm Chart;
+* примеры Kubernetes health checks;
+* настройку ресурсов контейнера;
+* локальное тестирование через Minikube.
+
+---
+
+## 📌 Итог
+
+**Kubernetes Microservice Deployment Kit** — это шаблон, который помогает стандартизировать развертывание микросервисов в Kubernetes.
+
+Вместо создания инфраструктуры для каждого нового сервиса с нуля можно взять готовый Helm-чарт, изменить параметры в `values.yaml` и получить Kubernetes-деплой с поддержкой **Istio, Canary-релизов, Redis, health checks и масштабирования**.
+
+Проект особенно полезен как стартовая точка для собственной платформы развертывания микросервисов или как практический пример построения Kubernetes-инфраструктуры.
